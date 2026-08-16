@@ -11,11 +11,24 @@ The view is converter-agnostic: it renders purely from `ConversionResult` and kn
 
 **Blocked by:** 02 — Conversion completeness: transfers, skip-with-reason, strict UTF-8.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Summary card shows income, expense, transfers, and skipped counts
-- [ ] Skip list is expandable and lists every skipped row as `row N: reason`
-- [ ] Preview table shows the first ~20 rows, all 6 columns, with notes truncated (e.g. ellipsis) while the download keeps full text
-- [ ] Download button shows row count + byte size and the filename is `cashew-<input name>`
-- [ ] Summary and errors are exposed as live/alert text; the view is operable without a mouse
-- [ ] The view renders only from `ConversionResult` — no source/target-specific conversion logic in it
+- [x] Summary card shows income, expense, transfers, and skipped counts
+- [x] Skip list is expandable and lists every skipped row as `row N: reason`
+- [x] Preview table shows the first ~20 rows, all 6 columns, with notes truncated (e.g. ellipsis) while the download keeps full text
+- [x] Download button shows row count + byte size and the filename is `cashew-<input name>`
+- [x] Summary and errors are exposed as live/alert text; the view is operable without a mouse
+- [x] The view renders only from `ConversionResult` — no source/target-specific conversion logic in it
+
+## Comments
+
+**Done in 3bf30c8 + 99ff1d8** (review fixes), all tests/typecheck/lint green.
+
+- **No new tests, by user decision** — the spec's "UI wiring above the conversion seam is untested" decision was honored over extracting a tested presentation seam (option offered, declined).
+- **`ConversionSuccess` added to `conversion/types.ts`** — `Extract` of the success branch; benign scope creep per spec review, kept.
+- **Counts wording lives once** — `countLines` in `src/results/presentation.ts` feeds both the summary card and the `role="status"` announcement, including the `(split into 2N rows)` transfer note ticket 02 asked for. That note and the `cashew-` download prefix are the only target-specific display facts, both isolated in `presentation.ts`.
+- **Truncation is CSS-only** — preview cells keep full text in the DOM (`max-width` + `text-overflow: ellipsis`), so screen readers and the download always see everything; verified via `scrollWidth > clientWidth` in the browser.
+- **Live region re-announce** — `role="status"` only announces on text change, so converting the same file twice appends an alternating invisible zero-width space to force a change.
+- **Download** — anchor appended to the document, object URL revoked after 1s (not synchronously; a sync revoke after `click()` can cancel the download in some browsers). Saving as `cashew-<input name>` verified.
+- **Verification was DOM-based** — vision was unavailable to both the main agent and the Image Analyst subagent in this session, so visual claims (truncation, overflow, contrast) were checked via Playwright `page.evaluate` measurements instead of screenshots.
+- **`useMemo` dropped** in ResultsView — preview/byte-size recompute per render, but renders only happen on file drops, so memoization was speculative.
