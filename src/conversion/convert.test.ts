@@ -8,6 +8,152 @@ function toBytes(text: string): ArrayBuffer {
   return new TextEncoder().encode(text).buffer as ArrayBuffer
 }
 
+describe('convertIvyToCashew — transfers', () => {
+  it('splits one TRANSFER row into an expense on the source account and an income on the destination', () => {
+    const input = [
+      IVY_HEADER,
+      '2024-05-01T09:15:30.000,Move to savings,200,Bank,Savings,Monthly save,TRANSFER,200,200,Savings',
+    ].join('\n')
+
+    const result = convertIvyToCashew(toBytes(input))
+
+    expect(result).toEqual({
+      ok: true,
+      csv: [
+        'Date,Amount,Category,Title,Note,Account',
+        '2024-05-01 09:15:30.000,-200,Transfer,Transfer to Savings,Move to savings,Bank',
+        '2024-05-01 09:15:30.000,200,Transfer,Transfer from Bank,Move to savings,Savings',
+      ].join('\r\n'),
+      counts: { income: 0, expense: 0, transfers: 1, skipped: 0 },
+      skips: [],
+    })
+  })
+
+  it('uses transfer and receive amounts when they differ, with thousands separators', () => {
+    const input = [
+      IVY_HEADER,
+      '2024-05-02T18:45:00,USD to VND,100,Vietcombank,Currency exchange,Rate fix,TRANSFER,"1,000","25,400,000",Cash',
+    ].join('\n')
+
+    const result = convertIvyToCashew(toBytes(input))
+
+    expect(result).toEqual({
+      ok: true,
+      csv: [
+        'Date,Amount,Category,Title,Note,Account',
+        '2024-05-02 18:45:00.000,-1000,Transfer,Transfer to Cash,USD to VND,Vietcombank',
+        '2024-05-02 18:45:00.000,25400000,Transfer,Transfer from Vietcombank,USD to VND,Cash',
+      ].join('\r\n'),
+      counts: { income: 0, expense: 0, transfers: 1, skipped: 0 },
+      skips: [],
+    })
+  })
+})
+
+describe('convertIvyToCashew — skips and row numbering', () => {
+  it('skips bad rows with a reason and 1-based row numbers relative to the input file, converting the rest', () => {
+    const input = [
+      IVY_HEADER, // row 1: header
+      '2024-06-01T10:00:00.000,Coffee,4.5,Cash,Food,Espresso,EXPENSE,,,', // row 2: converts
+      '', // row 3: blank line — ignored, but still occupies a file row
+      ',Mystery,20,Cash,Food,No date given,EXPENSE,,,', // row 4: missing date
+      '2024-06-03T10:00:00.000,Adjustment,10,Cash,Other,Correction,ADJUSTMENT,,,', // row 5: unknown type
+      '2024-06-04T10:00:00.000,Broken transfer,50,Bank,Savings,Half written,TRANSFER,,,', // row 6: transfer missing amounts
+      '2024-06-05T10:00:00.000,Free lunch,,Cash,Food,No amount,EXPENSE,,,', // row 7: missing amount
+      '2024-06-06T10:00:00.000,Garbage,abc,Cash,Food,Bad amount,EXPENSE,,,', // row 8: unparseable amount
+      '2024-06-07T10:00:00.000,Refund,30,Bank,Income,Returned item,INCOME,,,', // row 9: converts
+    ].join('\n')
+
+    const result = convertIvyToCashew(toBytes(input))
+
+    expect(result).toEqual({
+      ok: true,
+      csv: [
+        'Date,Amount,Category,Title,Note,Account',
+        '2024-06-01 10:00:00.000,-4.5,Food,Coffee,Espresso,Cash',
+        '2024-06-07 10:00:00.000,30,Income,Refund,Returned item,Bank',
+      ].join('\r\n'),
+      counts: { income: 1, expense: 1, transfers: 0, skipped: 5 },
+      skips: [
+        { row: 4, reason: 'missing date' },
+        { row: 5, reason: 'unknown transaction type: "ADJUSTMENT"' },
+        { row: 6, reason: 'transfer missing amounts' },
+        { row: 7, reason: 'missing amount' },
+        { row: 8, reason: 'unparseable amount: "abc"' },
+      ],
+    })
+  })
+
+  it('numbers skips after a record whose quoted note spans two physical lines', () => {
+    const input = [
+      IVY_HEADER, // row 1
+      '2024-07-01T09:00:00,Dinner,60,Cash,Food,"spans\ntwo lines",EXPENSE,,,', // rows 2–3
+      '2024-07-02T09:00:00,Garbage,abc,Cash,Food,Bad amount,EXPENSE,,,', // row 4: skip
+    ].join('\n')
+
+    const result = convertIvyToCashew(toBytes(input))
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.skips).toEqual([{ row: 4, reason: 'unparseable amount: "abc"' }])
+    expect(result.counts).toEqual({ income: 0, expense: 1, transfers: 0, skipped: 1 })
+  })
+})
+
+describe('convertIvyToCashew — encoding', () => {
+  it('preserves non-ASCII titles, notes and accounts exactly, including transfer titles', () => {
+    const input = [
+      IVY_HEADER,
+      '2024-07-01T08:00:00,Lương tháng bảy,15000000,Vietcombank,Lương,Khoản lương,INCOME,,,',
+      '2024-07-02T09:30:00.000,Chuyển tiền tiết kiệm,5000000,Vietcombank,Tiết kiệm,,TRANSFER,5000000,5000000,TK Tiết kiệm',
+    ].join('\n')
+
+    const result = convertIvyToCashew(toBytes(input))
+
+    expect(result).toEqual({
+      ok: true,
+      csv: [
+        'Date,Amount,Category,Title,Note,Account',
+        '2024-07-01 08:00:00.000,15000000,Lương,Lương tháng bảy,Khoản lương,Vietcombank',
+        '2024-07-02 09:30:00.000,-5000000,Transfer,Transfer to TK Tiết kiệm,Chuyển tiền tiết kiệm,Vietcombank',
+        '2024-07-02 09:30:00.000,5000000,Transfer,Transfer from Vietcombank,Chuyển tiền tiết kiệm,TK Tiết kiệm',
+      ].join('\r\n'),
+      counts: { income: 1, expense: 0, transfers: 1, skipped: 0 },
+      skips: [],
+    })
+  })
+
+  it('converts a BOM-prefixed file as if the BOM were absent', () => {
+    const input = [
+      '\uFEFF' + IVY_HEADER,
+      '2024-08-01T12:00:00.000,Coffee,4.5,Cash,Food,Espresso,EXPENSE,,,',
+    ].join('\n')
+
+    const result = convertIvyToCashew(toBytes(input))
+
+    expect(result).toEqual({
+      ok: true,
+      csv: [
+        'Date,Amount,Category,Title,Note,Account',
+        '2024-08-01 12:00:00.000,-4.5,Food,Coffee,Espresso,Cash',
+      ].join('\r\n'),
+      counts: { income: 0, expense: 1, transfers: 0, skipped: 0 },
+      skips: [],
+    })
+  })
+
+  it('returns ok: false with a clear error for invalid UTF-8 bytes', () => {
+    const bytes = new Uint8Array([0x44, 0x61, 0x74, 0x65, 0x2c, 0xff, 0xfe, 0x0a])
+
+    const result = convertIvyToCashew(bytes.buffer as ArrayBuffer)
+
+    expect(result).toEqual({
+      ok: false,
+      error: 'File is not valid UTF-8. Please re-export your CSV from Ivy Wallet and try again.',
+    })
+  })
+})
+
 describe('convertIvyToCashew — happy path', () => {
   it('normalizes INCOME to positive and EXPENSE to negative absolute amounts', () => {
     const input = [
