@@ -38,6 +38,9 @@ export type ConversionResult =
     }
   | { ok: false; error: string }
 
+/** The success branch of `ConversionResult`, as rendered by the results view. */
+export type ConversionSuccess = Extract<ConversionResult, { ok: true }>
+
 /** Outcome of parsing a source file into the neutral IR. */
 export interface ParseResult {
   transactions: Transaction[]

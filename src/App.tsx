@@ -1,16 +1,25 @@
 import { useState } from 'react'
 import { convertIvyToCashew } from './conversion/convert'
 import type { ConversionResult } from './conversion/types'
+import { ResultsView } from './results/ResultsView'
+import { summarySentence } from './results/presentation'
 import './App.css'
 
+/** One completed (or failed) conversion attempt, with the file it came from. */
+interface Conversion {
+  fileName: string
+  result: ConversionResult
+}
+
 function App() {
-  const [fileName, setFileName] = useState<string | null>(null)
-  const [result, setResult] = useState<ConversionResult | null>(null)
+  const [conversion, setConversion] = useState<Conversion | null>(null)
 
   async function handleFile(file: File | undefined) {
     if (!file) return
-    setFileName(file.name)
-    setResult(convertIvyToCashew(await file.arrayBuffer()))
+    setConversion({
+      fileName: file.name,
+      result: convertIvyToCashew(await file.arrayBuffer()),
+    })
   }
 
   return (
@@ -36,32 +45,23 @@ function App() {
         Choose Ivy export file (.csv)
       </label>
 
-      {result && !result.ok && (
+      {/* Persistent live region: each conversion's summary text changes in
+          place, so screen readers reliably announce it. Errors use the alert
+          role below. */}
+      <p role="status" className="sr-only">
+        {conversion?.result.ok
+          ? summarySentence(conversion.fileName, conversion.result.counts)
+          : ''}
+      </p>
+
+      {conversion && !conversion.result.ok && (
         <p className="error" role="alert">
-          {result.error}
+          {conversion.result.error}
         </p>
       )}
 
-      {result?.ok && (
-        <section className="summary" aria-label="Conversion summary">
-          <h2>
-            Converted <span className="filename">{fileName}</span>
-          </h2>
-          <ul className="counts">
-            <li>
-              <strong>{result.counts.income}</strong> income
-            </li>
-            <li>
-              <strong>{result.counts.expense}</strong> expenses
-            </li>
-            <li>
-              <strong>{result.counts.transfers}</strong> transfers
-            </li>
-            <li>
-              <strong>{result.counts.skipped}</strong> skipped
-            </li>
-          </ul>
-        </section>
+      {conversion?.result.ok && (
+        <ResultsView result={conversion.result} fileName={conversion.fileName} />
       )}
     </main>
   )
