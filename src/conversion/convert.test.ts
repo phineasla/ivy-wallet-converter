@@ -58,7 +58,7 @@ describe('convertIvyToCashew — skips and row numbering', () => {
       '', // row 3: blank line — ignored, but still occupies a file row
       ',Mystery,20,Cash,Food,No date given,EXPENSE,,,', // row 4: missing date
       '2024-06-03T10:00:00.000,Adjustment,10,Cash,Other,Correction,ADJUSTMENT,,,', // row 5: unknown type
-      '2024-06-04T10:00:00.000,Broken transfer,50,Bank,Savings,Half written,TRANSFER,,,', // row 6: transfer missing amounts
+      '2024-06-04T10:00:00.000,Broken transfer,50,Bank,Savings,Half written,TRANSFER,50,,', // row 6: transfer missing amounts (receive side absent)
       '2024-06-05T10:00:00.000,Free lunch,,Cash,Food,No amount,EXPENSE,,,', // row 7: missing amount
       '2024-06-06T10:00:00.000,Garbage,abc,Cash,Food,Bad amount,EXPENSE,,,', // row 8: unparseable amount
       '2024-06-07T10:00:00.000,Refund,30,Bank,Income,Returned item,INCOME,,,', // row 9: converts
@@ -93,10 +93,15 @@ describe('convertIvyToCashew — skips and row numbering', () => {
 
     const result = convertIvyToCashew(toBytes(input))
 
-    expect(result.ok).toBe(true)
-    if (!result.ok) return
-    expect(result.skips).toEqual([{ row: 4, reason: 'unparseable amount: "abc"' }])
-    expect(result.counts).toEqual({ income: 0, expense: 1, transfers: 0, skipped: 1 })
+    expect(result).toEqual({
+      ok: true,
+      csv: [
+        'Date,Amount,Category,Title,Note,Account',
+        '2024-07-01 09:00:00.000,-60,Food,Dinner,"spans\ntwo lines",Cash',
+      ].join('\r\n'),
+      counts: { income: 0, expense: 1, transfers: 0, skipped: 1 },
+      skips: [{ row: 4, reason: 'unparseable amount: "abc"' }],
+    })
   })
 })
 

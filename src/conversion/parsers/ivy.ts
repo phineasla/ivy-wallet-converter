@@ -74,26 +74,25 @@ export function parseIvy(text: string): ParseResult {
 
       const account = field('Account')
       const toAccount = field('To Account')
-      const title = field('Title')
       const currency = field('Currency')
+      const shared = {
+        date,
+        category: 'Transfer',
+        note: field('Title'),
+        ...(currency === '' ? {} : { currency }),
+      }
       transactions.push(
         {
-          date,
+          ...shared,
           amount: -Math.abs(transferAmount),
-          category: 'Transfer',
           title: `Transfer to ${toAccount}`,
-          note: title,
           account,
-          ...(currency === '' ? {} : { currency }),
         },
         {
-          date,
+          ...shared,
           amount: Math.abs(receiveAmount),
-          category: 'Transfer',
           title: `Transfer from ${account}`,
-          note: title,
           account: toAccount,
-          ...(currency === '' ? {} : { currency }),
         },
       )
       counts.transfers += 1
