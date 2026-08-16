@@ -20,7 +20,7 @@ export function downloadName(fileName: string): string {
 export interface CsvPreview {
   /** Header cells of the result CSV, in column order. */
   columns: string[]
-  /** The first `limit` data rows of the result CSV. */
+  /** The first `PREVIEW_ROW_LIMIT` data rows of the result CSV. */
   rows: string[][]
   /** Total data rows in the full CSV — what the download contains. */
   totalRows: number
@@ -29,14 +29,17 @@ export interface CsvPreview {
 /**
  * Shape the result CSV into a previewable table. Generic over any converter's
  * output: whatever columns the CSV's header row declares are the columns shown.
+ * Purely-empty records (a trailing newline) don't count as rows.
  */
-export function previewFromCsv(
-  csv: string,
-  limit = PREVIEW_ROW_LIMIT,
-): CsvPreview {
+export function previewFromCsv(csv: string): CsvPreview {
   const { data } = Papa.parse<string[]>(csv, { skipEmptyLines: false })
-  const [columns = [], ...rows] = data
-  return { columns, rows: rows.slice(0, limit), totalRows: rows.length }
+  const [columns = [], ...records] = data
+  const rows = records.filter((row) => row.some((cell) => cell !== ''))
+  return {
+    columns,
+    rows: rows.slice(0, PREVIEW_ROW_LIMIT),
+    totalRows: rows.length,
+  }
 }
 
 /** UTF-8 byte length of the CSV — the exact size of the downloaded file. */
@@ -60,17 +63,40 @@ export function plural(n: number, one: string, many: string): string {
   return n === 1 ? one : many
 }
 
+export interface CountLine {
+  value: number
+  /** Label following the bolded value, already pluralized. */
+  unit: string
+}
+
+/**
+ * The four summary counts as display lines — the single source for both the
+ * summary card and the screen-reader announcement, so their wording can't drift.
+ *
+ * The "(split into 2N rows)" note is the one transfer-display rule the results
+ * view carries (per the conversion contract: `counts.transfers` counts source
+ * transfer rows, each splitting into two output rows). It lives here, beside
+ * `downloadName`, not in the component.
+ */
+export function countLines(counts: ConversionCounts): CountLine[] {
+  const { income, expense, transfers, skipped } = counts
+  const split =
+    transfers > 0 ? ` (split into ${transfers * 2} rows)` : ''
+  return [
+    { value: income, unit: 'income' },
+    { value: expense, unit: plural(expense, 'expense', 'expenses') },
+    { value: transfers, unit: `${plural(transfers, 'transfer', 'transfers')}${split}` },
+    { value: skipped, unit: plural(skipped, 'row skipped', 'rows skipped') },
+  ]
+}
+
 /** Screen-reader sentence announcing a finished conversion. */
 export function summarySentence(
   fileName: string,
   counts: ConversionCounts,
 ): string {
-  const { income, expense, transfers, skipped } = counts
-  return [
-    `Converted ${fileName}:`,
-    `${income} income,`,
-    `${expense} ${plural(expense, 'expense', 'expenses')},`,
-    `${transfers} ${plural(transfers, 'transfer', 'transfers')},`,
-    `${skipped} ${plural(skipped, 'row skipped', 'rows skipped')}.`,
-  ].join(' ')
+  const lines = countLines(counts)
+    .map(({ value, unit }) => `${value} ${unit}`)
+    .join(', ')
+  return `Converted ${fileName}: ${lines}.`
 }

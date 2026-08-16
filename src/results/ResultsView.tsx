@@ -1,16 +1,17 @@
-import { useMemo } from 'react'
-import type { ConversionSuccess } from '../conversion/types'
+import type { ConversionResult } from '../conversion/types'
 import {
   byteSize,
+  countLines,
   downloadName,
   formatBytes,
   plural,
   previewFromCsv,
 } from './presentation'
 
-interface ResultsViewProps {
-  result: ConversionSuccess
+/** One completed (or failed) conversion attempt, with the file it came from. */
+export interface Conversion {
   fileName: string
+  result: ConversionResult
 }
 
 /**
@@ -20,23 +21,25 @@ interface ResultsViewProps {
  * Converter-agnostic by design — it renders purely from `ConversionResult`
  * and knows nothing about Ivy or Cashew specifics.
  */
-export function ResultsView({ result, fileName }: ResultsViewProps) {
-  const preview = useMemo(() => previewFromCsv(result.csv), [result])
-  const bytes = useMemo(() => byteSize(result.csv), [result])
-  const { income, expense, transfers, skipped } = result.counts
+export function ResultsView({ conversion }: { conversion: Conversion }) {
+  const { fileName, result } = conversion
+  // App only mounts this view on success; keep the component total anyway.
+  if (!result.ok) return null
+  const csv = result.csv
+  const preview = previewFromCsv(csv)
+  const bytes = byteSize(csv)
 
   function handleDownload() {
-    const blob = new Blob([result.csv], { type: 'text/csv;charset=utf-8' })
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
     link.download = downloadName(fileName)
-    // The anchor must be in the document for the click to start a download,
-    // and the URL can only be revoked once the download has been kicked off.
     document.body.appendChild(link)
     link.click()
     link.remove()
-    setTimeout(() => URL.revokeObjectURL(url))
+    // Deferred so the download has started before the blob URL is released.
+    setTimeout(() => URL.revokeObjectURL(url), 1_000)
   }
 
   return (
@@ -46,25 +49,11 @@ export function ResultsView({ result, fileName }: ResultsViewProps) {
           Converted <span className="filename">{fileName}</span>
         </h2>
         <ul className="counts">
-          <li>
-            <strong>{income}</strong> income
-          </li>
-          <li>
-            <strong>{expense}</strong> {plural(expense, 'expense', 'expenses')}
-          </li>
-          <li>
-            <strong>{transfers}</strong>{' '}
-            {plural(transfers, 'transfer', 'transfers')}
-            {transfers > 0 && (
-              <span className="split-note">
-                {' '}
-                (split into {transfers * 2} rows)
-              </span>
-            )}
-          </li>
-          <li>
-            <strong>{skipped}</strong> {plural(skipped, 'row', 'rows')} skipped
-          </li>
+          {countLines(result.counts).map(({ value, unit }) => (
+            <li key={unit}>
+              <strong>{value}</strong> {unit}
+            </li>
+          ))}
         </ul>
       </section>
 
@@ -114,9 +103,13 @@ export function ResultsView({ result, fileName }: ResultsViewProps) {
         )}
       </section>
 
-      <button type="button" className="download-button" onClick={handleDownload}>
-        Download CSV ({preview.totalRows} {plural(preview.totalRows, 'row', 'rows')} ·{' '}
-        {formatBytes(bytes)})
+      <button
+        type="button"
+        className="download-button"
+        onClick={handleDownload}
+      >
+        Download CSV ({preview.totalRows}{' '}
+        {plural(preview.totalRows, 'row', 'rows')} · {formatBytes(bytes)})
       </button>
       <p className="download-as">
         Saves as <span className="filename">{downloadName(fileName)}</span>

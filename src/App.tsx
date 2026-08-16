@@ -1,18 +1,14 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { convertIvyToCashew } from './conversion/convert'
-import type { ConversionResult } from './conversion/types'
-import { ResultsView } from './results/ResultsView'
+import { ResultsView, type Conversion } from './results/ResultsView'
 import { summarySentence } from './results/presentation'
 import './App.css'
 
-/** One completed (or failed) conversion attempt, with the file it came from. */
-interface Conversion {
-  fileName: string
-  result: ConversionResult
-}
-
 function App() {
   const [conversion, setConversion] = useState<Conversion | null>(null)
+  // Live regions only announce on *change*; alternating an invisible
+  // zero-width space keeps re-converting the same file announced too.
+  const announcementCount = useRef(0)
 
   async function handleFile(file: File | undefined) {
     if (!file) return
@@ -20,6 +16,7 @@ function App() {
       fileName: file.name,
       result: convertIvyToCashew(await file.arrayBuffer()),
     })
+    announcementCount.current += 1
   }
 
   return (
@@ -50,7 +47,8 @@ function App() {
           role below. */}
       <p role="status" className="sr-only">
         {conversion?.result.ok
-          ? summarySentence(conversion.fileName, conversion.result.counts)
+          ? summarySentence(conversion.fileName, conversion.result.counts) +
+            '\u200b'.repeat(announcementCount.current % 2)
           : ''}
       </p>
 
@@ -60,9 +58,7 @@ function App() {
         </p>
       )}
 
-      {conversion?.result.ok && (
-        <ResultsView result={conversion.result} fileName={conversion.fileName} />
-      )}
+      {conversion?.result.ok && <ResultsView conversion={conversion} />}
     </main>
   )
 }
