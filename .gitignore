@@ -12,10 +12,6 @@ dist
 dist-ssr
 *.local
 
-# Personal financial data — local reference files must never be committed
-temp/
-*.csv
-
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
