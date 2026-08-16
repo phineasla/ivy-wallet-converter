@@ -1,3 +1,107 @@
+main {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 4rem 1.25rem 5rem;
+  text-align: center;
+}
+
+h1 {
+  color: var(--heading);
+  font-size: 1.9rem;
+  line-height: 1.2;
+  margin: 0 0 0.5rem;
+}
+
+.tagline {
+  margin: 0 0 1.25rem;
+}
+
+.privacy {
+  margin: 0 auto 2rem;
+  max-width: 30rem;
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  background: var(--card);
+  color: var(--heading);
+  font-size: 0.95rem;
+}
+
+.pick-button {
+  display: inline-block;
+  padding: 0.65rem 1.4rem;
+  border-radius: 0.6rem;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.pick-button:hover {
+  background: var(--accent-hover);
+}
+
+.pick-button:focus-visible,
+.pick-button:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.pick-button input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.error {
+  margin: 1.5rem auto 0;
+  max-width: 30rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--error);
+  color: var(--error);
+}
+
+.summary {
+  margin: 2rem auto 0;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+.summary h2 {
+  color: var(--heading);
+  font-size: 1.05rem;
+  margin: 0 0 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.filename {
+  font-family: var(--mono);
+  font-size: 0.9rem;
+}
+
+.counts {
+  list-style: none;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.75rem;
+  margin: 0;
+  padding: 0;
+}
+
+.counts strong {
+  color: var(--heading);
+  font-size: 1.3rem;
+  margin-right: 0.35rem;
+}
+
 .counter {
   font-size: 16px;
   padding: 5px 10px;

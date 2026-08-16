@@ -1,121 +1,69 @@
 import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
+import { convertIvyToCashew } from './conversion/convert'
+import type { ConversionResult } from './conversion/types'
 import './App.css'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [fileName, setFileName] = useState<string | null>(null)
+  const [result, setResult] = useState<ConversionResult | null>(null)
+
+  async function handleFile(file: File | undefined) {
+    if (!file) return
+    setFileName(file.name)
+    setResult(convertIvyToCashew(await file.arrayBuffer()))
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <main>
+      <h1>Ivy Wallet → Cashew</h1>
+      <p className="tagline">
+        Convert an Ivy Wallet transaction export into a Cashew-ready CSV.
+      </p>
+      <p className="privacy">
+        Everything runs locally in your browser. Your file never leaves your
+        device — nothing is uploaded, stored, or sent anywhere.
+      </p>
 
-      <div className="ticks"></div>
+      <label className="pick-button">
+        <input
+          type="file"
+          accept=".csv,text/csv"
+          onChange={(event) => {
+            void handleFile(event.target.files?.[0])
+            event.target.value = ''
+          }}
+        />
+        Choose Ivy export file (.csv)
+      </label>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
+      {result && !result.ok && (
+        <p className="error" role="alert">
+          {result.error}
+        </p>
+      )}
+
+      {result?.ok && (
+        <section className="summary" aria-label="Conversion summary">
+          <h2>
+            Converted <span className="filename">{fileName}</span>
+          </h2>
+          <ul className="counts">
             <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
+              <strong>{result.counts.income}</strong> income
             </li>
             <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
+              <strong>{result.counts.expense}</strong> expenses
+            </li>
+            <li>
+              <strong>{result.counts.transfers}</strong> transfers
+            </li>
+            <li>
+              <strong>{result.counts.skipped}</strong> skipped
             </li>
           </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+        </section>
+      )}
+    </main>
   )
 }
 

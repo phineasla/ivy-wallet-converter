@@ -19,12 +19,18 @@ Also in this slice: strip the scaffold demo (counter, logos, sample sections) do
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Picking a clean INCOME/EXPENSE Ivy CSV via a button converts it fully in-browser and shows counts (income/expense populated, transfers/skipped 0)
-- [ ] The page states explicitly that the file never leaves the browser
-- [ ] Golden-file tests at the `convertIvyToCashew` seam assert the full output CSV + counts, with no mocks, for: sign normalization; both Ivy date variants; thousands-separator amounts; quoted fields with embedded commas/newlines
-- [ ] Scaffold demo removed; dev, build, and test scripts all green
-- [ ] papaparse and vitest installed, with a working test script
-- [ ] Local reference CSVs are gitignored — an accidental commit is impossible
-- [ ] ADR-0001 records the ISO-like date decision and the revisit trigger (Cashew rejecting ISO-like dates)
+- [x] Picking a clean INCOME/EXPENSE Ivy CSV via a button converts it fully in-browser and shows counts (income/expense populated, transfers/skipped 0)
+- [x] The page states explicitly that the file never leaves the browser
+- [x] Golden-file tests at the `convertIvyToCashew` seam assert the full output CSV + counts, with no mocks, for: sign normalization; both Ivy date variants; thousands-separator amounts; quoted fields with embedded commas/newlines
+- [x] Scaffold demo removed; dev, build, and test scripts all green
+- [x] papaparse and vitest installed, with a working test script
+- [x] Local reference CSVs are gitignored — an accidental commit is impossible
+- [x] ADR-0001 records the ISO-like date decision and the revisit trigger (Cashew rejecting ISO-like dates)
+
+## Comments
+
+- 2026-08-16: Implemented. Architecture landed under `src/conversion/`: `types.ts` (Transaction IR + `ConversionResult` seam), `parsers/ivy.ts`, `serializers/cashew.ts`, `registry.ts` (`ivy-to-cashew` registered), `convert.ts` (`convertIvyToCashew`). 4 golden tests at the seam in `convert.test.ts`. UI is a minimal shell (privacy statement, picker, counts, error display). Verified end-to-end in the browser via the dev server.
+- Transitional: TRANSFER rows currently surface as skips ("transfers are not supported yet") — ticket 02 replaces this with the two-row split. Fatal UTF-8 decoding (with free BOM stripping via TextDecoder) is already in place; ticket 02 pins it with tests.
+- Noted behavior: Papa.unparse joins rows with CRLF (matches the Python prototype's `csv.writer` output) and omits a trailing newline; golden tests pin this.
