@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { convertIvyToCashew } from './conversion/convert'
+import { Dropzone } from './dropzone/Dropzone'
 import { ResultsView, type Conversion } from './results/ResultsView'
 import { summarySentence } from './results/presentation'
 import './App.css'
@@ -10,8 +11,9 @@ function App() {
   // zero-width space keeps re-converting the same file announced too.
   const announcementCount = useRef(0)
 
-  async function handleFile(file: File | undefined) {
-    if (!file) return
+  // Each accepted file replaces the previous conversion wholesale, so no
+  // counts, preview, or download from an earlier file can survive it.
+  async function handleAccept(file: File) {
     setConversion({
       fileName: file.name,
       result: convertIvyToCashew(await file.arrayBuffer()),
@@ -30,17 +32,7 @@ function App() {
         device — nothing is uploaded, stored, or sent anywhere.
       </p>
 
-      <label className="pick-button">
-        <input
-          type="file"
-          accept=".csv,text/csv"
-          onChange={(event) => {
-            void handleFile(event.target.files?.[0])
-            event.target.value = ''
-          }}
-        />
-        Choose Ivy export file (.csv)
-      </label>
+      <Dropzone onAccept={handleAccept} />
 
       {/* Persistent live region: each conversion's summary text changes in
           place, so screen readers reliably announce it. Errors use the alert
@@ -58,7 +50,11 @@ function App() {
         </p>
       )}
 
-      {conversion?.result.ok && <ResultsView conversion={conversion} />}
+      {/* Keyed by filename: a new file starts from a fresh results view
+          instead of inheriting expand/scroll state from the previous one. */}
+      {conversion?.result.ok && (
+        <ResultsView key={conversion.fileName} conversion={conversion} />
+      )}
     </main>
   )
 }
