@@ -1,32 +1,36 @@
-# React + TypeScript + Vite
+# Ivy Wallet → Cashew Converter
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+[Ivy Wallet](https://ivywallet.app/) is a wonderful open-source money manager for Android — but its original maintainers [stopped developing it](https://github.com/Ivy-Apps/ivy-wallet) on November 5, 2024. While searching for a trustworthy replacement, I settled on [Cashew](https://cashewapp.web.app/).
 
-Currently, two official plugins are available:
+This tool bridges the gap: it takes Ivy Wallet's CSV export and converts it into a format Cashew can import, so your transaction history moves with you.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+**Try it live:** <https://phineasla.github.io/ivy-wallet-converter/>
 
-## React Compiler
+## Usage
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+1. Export your data as CSV from Ivy Wallet (Settings → Export)
+2. Drop the file onto the converter
+3. Download the converted CSV and import it into Cashew
 
-## Expanding the Oxlint configuration
+## Development
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```sh
+pnpm install
+pnpm dev        # start dev server
+pnpm build      # production build
+pnpm test       # run test suite
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+To publish a new version to GitHub Pages:
+
+```sh
+pnpm build && pnpm run deploy
+```
+
+## Alternatives
+
+- [Ivy2Cashew](https://github.com/iannim/Ivy2Cashew) — another Ivy Wallet to Cashew CSV converter
+
+## Attribution
+
+- Convert icon by [Azland Studio - Flaticon](https://www.flaticon.com/free-icons/convert)
