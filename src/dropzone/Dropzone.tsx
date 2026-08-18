@@ -11,9 +11,9 @@ import {
  * `.csv` — and its feedback; accepted files are handed up for conversion.
  */
 
-/** A file counts as a CSV by extension (any case) or by MIME type. */
+/** A file counts as a CSV by its extension, in any letter case. */
 function isCsv(file: File): boolean {
-  return file.name.toLowerCase().endsWith('.csv') || file.type === 'text/csv'
+  return file.name.toLowerCase().endsWith('.csv')
 }
 
 /** Why a non-empty selection is refused, or null when it is exactly one CSV. */
@@ -114,15 +114,16 @@ export function Dropzone({ onAccept }: { onAccept: (file: File) => void }) {
         <span className="dropzone-title">Drop your Ivy Wallet export here</span>
         <span className="dropzone-hint">or click to choose a .csv file</span>
       </button>
-      {/* Operated only through the button, so kept out of the tab order and
-          the accessibility tree. */}
+      {/* The picker proxy: kept out of the tab order (the zone button is the
+          keyboard interface) but visible to assistive tech with its own
+          label, so it stays operable if focused directly. */}
       <input
         ref={inputRef}
         className="dropzone-input"
         type="file"
         accept=".csv,text/csv"
+        aria-label="Choose an Ivy Wallet export file"
         tabIndex={-1}
-        aria-hidden="true"
         onChange={(event) => {
           handleSelect(event.target.files)
           // Re-selecting the same file must fire change again.

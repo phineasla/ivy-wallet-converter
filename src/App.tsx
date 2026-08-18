@@ -1,5 +1,6 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { convertIvyToCashew } from './conversion/convert'
+import type { ConversionResult } from './conversion/types'
 import { Dropzone } from './dropzone/Dropzone'
 import { ResultsView, type Conversion } from './results/ResultsView'
 import { summarySentence } from './results/presentation'
@@ -7,18 +8,28 @@ import './App.css'
 
 function App() {
   const [conversion, setConversion] = useState<Conversion | null>(null)
-  // Live regions only announce on *change*; alternating an invisible
-  // zero-width space keeps re-converting the same file announced too.
-  const announcementCount = useRef(0)
+  // Increments per accepted file: remounts the results view so a new file
+  // starts fresh (no inherited expand/scroll state), and alternates an
+  // invisible zero-width space in the live region — live regions only
+  // announce on *change*, so re-converting the same file stays announced.
+  const [attempt, setAttempt] = useState(0)
 
   // Each accepted file replaces the previous conversion wholesale, so no
-  // counts, preview, or download from an earlier file can survive it.
+  // counts, preview, or download from an earlier file can survive it. The
+  // attempt counter and result land in one commit — the old view never
+  // re-renders with the new attempt number but stale data.
   async function handleAccept(file: File) {
-    setConversion({
-      fileName: file.name,
-      result: convertIvyToCashew(await file.arrayBuffer()),
-    })
-    announcementCount.current += 1
+    let result: ConversionResult
+    try {
+      result = convertIvyToCashew(await file.arrayBuffer())
+    } catch {
+      result = {
+        ok: false,
+        error: `"${file.name}" could not be read — please try selecting it again.`,
+      }
+    }
+    setAttempt((n) => n + 1)
+    setConversion({ fileName: file.name, result })
   }
 
   return (
@@ -40,7 +51,7 @@ function App() {
       <p role="status" className="sr-only">
         {conversion?.result.ok
           ? summarySentence(conversion.fileName, conversion.result.counts) +
-            '\u200b'.repeat(announcementCount.current % 2)
+            '\u200b'.repeat(attempt % 2)
           : ''}
       </p>
 
@@ -50,10 +61,8 @@ function App() {
         </p>
       )}
 
-      {/* Keyed by filename: a new file starts from a fresh results view
-          instead of inheriting expand/scroll state from the previous one. */}
       {conversion?.result.ok && (
-        <ResultsView key={conversion.fileName} conversion={conversion} />
+        <ResultsView key={attempt} conversion={conversion} />
       )}
     </main>
   )
