@@ -147,14 +147,24 @@ describe('convertIvyToCashew — encoding', () => {
     })
   })
 
-  it('returns ok: false with a clear error for invalid UTF-8 bytes', () => {
-    const bytes = new Uint8Array([0x44, 0x61, 0x74, 0x65, 0x2c, 0xff, 0xfe, 0x0a])
+  it('replaces invalid UTF-8 bytes with U+FFFD instead of failing the file', () => {
+    const encoder = new TextEncoder()
+    const bytes = new Uint8Array([
+      ...encoder.encode(IVY_HEADER + '\n2024-08-02T09:00:00.000,Caf'),
+      0xff, // invalid UTF-8 start byte
+      ...encoder.encode(',4.5,Cash,Food,Espresso,EXPENSE,,,\n'),
+    ])
 
     const result = convertIvyToCashew(bytes.buffer as ArrayBuffer)
 
     expect(result).toEqual({
-      ok: false,
-      error: 'File is not valid UTF-8. Please re-export your CSV from Ivy Wallet and try again.',
+      ok: true,
+      csv: [
+        'Date,Amount,Category,Title,Note,Account',
+        '2024-08-02 09:00:00.000,-4.5,Food,Caf\uFFFD,Espresso,Cash',
+      ].join('\r\n'),
+      counts: { income: 0, expense: 1, transfers: 0, skipped: 0 },
+      skips: [],
     })
   })
 })

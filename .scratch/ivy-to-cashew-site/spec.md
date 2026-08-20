@@ -29,7 +29,7 @@ A public, single-page static website where any Ivy Wallet user drops their expor
 14. As an Ivy Wallet user, I want the download named after my input file (e.g. `ivy-export.csv` → `cashew-ivy-export.csv`), so that I can find it easily.
 15. As an Ivy Wallet user, I want dropping a new file to reset the previous result, so that consecutive conversions don't mix.
 16. As an Ivy Wallet user with Vietnamese or other non-ASCII text in titles/notes/accounts, I want UTF-8 content preserved exactly, so that my data imports intact.
-17. As an Ivy Wallet user, I want a clear error if my file isn't valid UTF-8, so that I understand why conversion failed and can re-export.
+17. As an Ivy Wallet user whose export has stray non-UTF-8 bytes, I want the conversion to proceed with those bytes replaced by U+FFFD, so that a few bad bytes don't block the whole import.
 18. As a mobile user, I want the page to work on a small screen, so that I can convert on my phone.
 19. As a visitor unfamiliar with either app, I want a short explainer of what Ivy and Cashew are (with links), so that I understand the tool's purpose.
 20. As a keyboard-only user, I want the file picker reachable and operable via keyboard, so that I can use the tool without a mouse.
@@ -49,7 +49,7 @@ A public, single-page static website where any Ivy Wallet user drops their expor
   ```ts
   type ConversionResult =
     | { ok: true; csv: string; counts: { income: number; expense: number; transfers: number; skipped: number }; skips: Array<{ row: number; reason: string }> }
-    | { ok: false; error: string } // e.g. invalid UTF-8
+    | { ok: false; error: string } // e.g. file read failure
   convertIvyToCashew(bytes: ArrayBuffer): ConversionResult
   ```
 - **Pluggable converter registry.** Each converter registers an id, parser, and serializer (`ivy-to-cashew` first). The UI is converter-agnostic: it renders from `ConversionResult` and knows nothing about Ivy/Cashew specifics.
@@ -57,7 +57,7 @@ A public, single-page static website where any Ivy Wallet user drops their expor
 - **Transfer splitting lives in the parser.** One Ivy TRANSFER row emits two IR transactions (negative on source account, positive on destination, category `Transfer`, titles `Transfer to <account>` / `Transfer from <account>`, original title as note).
 - **Sign normalization.** EXPENSE → negative absolute, INCOME → positive absolute. Amounts are emitted as raw JS numbers (e.g. `500`, `-2046.06`), not fixed-decimal strings.
 - **Date output format.** `YYYY-MM-DD HH:mm:ss.SSS` via a timezone-safe string transform (no `Date` object, so no TZ drift). Note: Cashew's own import template shows `M/D/YYYY` dates; we deliberately keep the ISO-like format — worth an ADR when domain docs begin.
-- **Encoding.** Strict UTF-8 decode (fatal) with BOM stripped; on failure the user gets a clear error. No encoding detection, no fallback encodings.
+- **Encoding.** Lenient UTF-8 decode with the BOM stripped; invalid bytes are replaced with U+FFFD and never fail the file. No encoding detection, no fallback encodings.
 - **Validation policy — skip with reason, never crash, never silent.** Reasons cover: missing date, missing/unparseable amount, transfer missing amounts, unknown transaction type. Skipped rows carry 1-based row numbers relative to the input file (header-aware).
 - **UI flow.** Drag-drop zone + click-to-pick → conversion summary card (counts + expandable skip list `row N: reason`) → preview table (first ~20 rows, all 6 output columns, notes truncated with full text preserved on download) → explicit "Download Cashew CSV" button (shows row count + byte size). Dropping a new file resets state.
 - **Copy and theme.** English only; follows `prefers-color-scheme` (no manual toggle).
@@ -69,7 +69,7 @@ A public, single-page static website where any Ivy Wallet user drops their expor
 - **What makes a good test here:** assert only external behavior at the one seam — raw input bytes in, complete output (CSV string + counts + skip list) out. No assertions on internal modules, mocks, or UI internals.
 - **Single seam:** `convertIvyToCashew(bytes)` as specified above — the highest possible seam, exercising decode → parse → map/split → serialize with no mocks. UI wiring above it is untested by decision.
 - **Framework:** Vitest, golden-file style — inline CSV fixtures, assert the full expected output CSV, counts, and skip reasons.
-- **Cases (~6–8):** income/expense sign normalization; transfer split into two rows; both Ivy date variants (with/without time part); each skip reason (missing date, bad amount, transfer missing amounts, unknown type); thousands-separator amounts; invalid UTF-8 bytes → error; BOM-prefixed file; quoted fields with embedded commas/newlines.
+- **Cases (~6–8):** income/expense sign normalization; transfer split into two rows; both Ivy date variants (with/without time part); each skip reason (missing date, bad amount, transfer missing amounts, unknown type); thousands-separator amounts; invalid UTF-8 bytes → replaced with U+FFFD, conversion proceeds; BOM-prefixed file; quoted fields with embedded commas/newlines.
 - **Prior art:** none — this is the first tested logic in a fresh template repo.
 
 ## Out of Scope

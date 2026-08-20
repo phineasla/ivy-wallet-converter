@@ -17,17 +17,7 @@ export function convertWith(id: string, bytes: ArrayBuffer): ConversionResult {
     return { ok: false, error: `Unknown converter: "${id}"` }
   }
 
-  let text: string
-  try {
-    // Fatal + BOM-stripping: TextDecoder removes a leading UTF-8 BOM by default.
-    text = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
-  } catch {
-    return {
-      ok: false,
-      error:
-        'File is not valid UTF-8. Please re-export your CSV from Ivy Wallet and try again.',
-    }
-  }
+  const text = new TextDecoder('utf-8').decode(bytes)
 
   const { transactions, counts, skips } = converter.parse(text)
   return {
