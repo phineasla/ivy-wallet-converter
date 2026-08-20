@@ -8,6 +8,19 @@ function toBytes(text: string): ArrayBuffer {
   return new TextEncoder().encode(text).buffer as ArrayBuffer
 }
 
+/** Encode text as BOM-prefixed UTF-16 — `littleEndian` picks the byte order. */
+function toUtf16(text: string, littleEndian: boolean): ArrayBuffer {
+  const bytes = new Uint8Array(2 + text.length * 2)
+  bytes[0] = littleEndian ? 0xff : 0xfe
+  bytes[1] = littleEndian ? 0xfe : 0xff
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i)
+    bytes[2 + i * 2] = littleEndian ? code & 0xff : code >> 8
+    bytes[3 + i * 2] = littleEndian ? code >> 8 : code & 0xff
+  }
+  return bytes.buffer
+}
+
 describe('convertIvyToCashew — transfers', () => {
   it('splits one TRANSFER row into an expense on the source account and an income on the destination', () => {
     const input = [
@@ -165,6 +178,59 @@ describe('convertIvyToCashew — encoding', () => {
       ].join('\r\n'),
       counts: { income: 0, expense: 1, transfers: 0, skipped: 0 },
       skips: [],
+    })
+  })
+})
+
+describe('convertIvyToCashew — real 2026 export shape', () => {
+  // Column order of actual 2026 exports: 15 columns, Currency included.
+  const IVY_2026_HEADER =
+    'Date,Title,Category,Account,Amount,Currency,Type,Transfer Amount,Transfer Currency,To Account,Receive Amount,Receive Currency,Description,Due Date,ID'
+  const EXPENSE_ROW =
+    '2026-08-08T16:03:00.431,Game Big Walk,Entertainment,Bank,"185,000.00",VND,EXPENSE,,,,,,,,c751b6b5-ad42-42c8-a15f-63f7af5d2b59'
+
+  it('converts a UTF-16 BE file (BOM fe ff), as when the export was re-saved by another tool', () => {
+    const result = convertIvyToCashew(toUtf16([IVY_2026_HEADER, EXPENSE_ROW].join('\n'), false))
+
+    expect(result).toEqual({
+      ok: true,
+      csv: [
+        'Date,Amount,Category,Title,Note,Account',
+        '2026-08-08 16:03:00.431,-185000,Entertainment,Game Big Walk,,Bank',
+      ].join('\r\n'),
+      counts: { income: 0, expense: 1, transfers: 0, skipped: 0 },
+      skips: [],
+    })
+  })
+
+  it('converts a UTF-16 LE file (BOM ff fe) the same way', () => {
+    const result = convertIvyToCashew(toUtf16([IVY_2026_HEADER, EXPENSE_ROW].join('\n'), true))
+
+    expect(result).toEqual({
+      ok: true,
+      csv: [
+        'Date,Amount,Category,Title,Note,Account',
+        '2026-08-08 16:03:00.431,-185000,Entertainment,Game Big Walk,,Bank',
+      ].join('\r\n'),
+      counts: { income: 0, expense: 1, transfers: 0, skipped: 0 },
+      skips: [],
+    })
+  })
+
+  it('skips planned payments (empty Date, Due Date set) with a due-date reason', () => {
+    const input = [
+      IVY_2026_HEADER,
+      ',Savings,Misc,Bank,"5,000,000.00",VND,INCOME,,,,,,,2026-08-25T12:00:00,c1127621-5731-435f-b9fd-dfaf4f8239af',
+    ].join('\n')
+
+    const result = convertIvyToCashew(toBytes(input))
+
+    expect(result).toEqual({
+      ok: true,
+      // With no transactions, the CSV is just the header line.
+      csv: 'Date,Amount,Category,Title,Note,Account\r\n',
+      counts: { income: 0, expense: 0, transfers: 0, skipped: 1 },
+      skips: [{ row: 2, reason: 'planned transaction (due 2026-08-25T12:00:00)' }],
     })
   })
 })

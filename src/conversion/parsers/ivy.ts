@@ -19,6 +19,10 @@ import { normalizeIvyDate } from '../dates'
  * never crash, never silent. Row numbers track the input file itself: the
  * header is row 1, blank lines occupy their row, and a quoted field spanning
  * several physical lines counts those lines for the records after it.
+ *
+ * Planned payments (empty `Date`, only a `Due Date`) are skipped with a
+ * due-date reason: they haven't happened yet, and importing them would
+ * fabricate transactions Cashew then counts as real money.
  */
 export function parseIvy(text: string): ParseResult {
   // Blank lines keep their slot in `data` (no skipping) so row numbers can
@@ -60,7 +64,12 @@ export function parseIvy(text: string): ParseResult {
     const rawDate = field('Date')
     const date = normalizeIvyDate(rawDate)
     if (date === null) {
-      skip(rawDate === '' ? 'missing date' : `unparseable date: "${rawDate}"`)
+      if (rawDate === '') {
+        const due = field('Due Date')
+        skip(due === '' ? 'missing date' : `planned transaction (due ${due})`)
+      } else {
+        skip(`unparseable date: "${rawDate}"`)
+      }
       continue
     }
 

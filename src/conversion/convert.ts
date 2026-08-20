@@ -17,7 +17,7 @@ export function convertWith(id: string, bytes: ArrayBuffer): ConversionResult {
     return { ok: false, error: `Unknown converter: "${id}"` }
   }
 
-  const text = new TextDecoder('utf-8').decode(bytes)
+  const text = decodeText(bytes)
 
   const { transactions, counts, skips } = converter.parse(text)
   return {
@@ -26,4 +26,15 @@ export function convertWith(id: string, bytes: ArrayBuffer): ConversionResult {
     counts: { ...counts, skipped: skips.length },
     skips,
   }
+}
+
+function decodeText(bytes: ArrayBuffer): string {
+  const prefix = new Uint8Array(bytes)
+  if (prefix[0] === 0xff && prefix[1] === 0xfe) {
+    return new TextDecoder('utf-16le').decode(bytes)
+  }
+  if (prefix[0] === 0xfe && prefix[1] === 0xff) {
+    return new TextDecoder('utf-16be').decode(bytes)
+  }
+  return new TextDecoder('utf-8').decode(bytes)
 }
